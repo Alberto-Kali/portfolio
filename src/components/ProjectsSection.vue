@@ -77,7 +77,7 @@ onMounted(() => {
 <template>
   <section ref="sectionRef" class="projects-section">
     <div class="container">
-      <h2 class="section-title">Featured Projects</h2>
+      <h2 class="section-title">Галерея Проектов</h2>
       
       <div class="projects-grid">
         <div

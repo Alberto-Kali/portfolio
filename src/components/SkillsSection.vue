@@ -7,12 +7,12 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 gsap.registerPlugin(ScrollTrigger)
 
 const skills = [
-  { name: 'Vue.js', level: 90, color: '#42b883' },
-  { name: 'Three.js', level: 85, color: '#4466ff' },
-  { name: 'GSAP', level: 88, color: '#88ff88' },
-  { name: 'TypeScript', level: 85, color: '#3178c6' },
+  { name: 'Python', level: 90, color: '#ffd506' },
+  { name: 'JS', level: 85, color: '#44ff44' },
+  { name: 'Flutter', level: 88, color: '#484ef4' },
+  { name: 'Go', level: 85, color: '#3178c6' },
   { name: 'Node.js', level: 80, color: '#68a063' },
-  { name: 'WebGL', level: 75, color: '#990000' }
+  { name: 'Haskell', level: 75, color: '#b12aff' }
 ]
 
 const sectionRef = ref<HTMLElement | null>(null)
@@ -67,7 +67,7 @@ onMounted(() => {
     <div class="animated-particles"></div>
     
     <div class="container">
-      <h2 class="section-title">Skills & Expertise</h2>
+      <h2 class="section-title">Навыки & Опыт</h2>
       
       <div class="skills-container">
         <div

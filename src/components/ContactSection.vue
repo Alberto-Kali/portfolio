@@ -41,28 +41,28 @@ onMounted(() => {
 <template>
   <section ref="sectionRef" class="contact-section">
     <div class="container">
-      <h2 class="section-title">Get In Touch</h2>
+      <h2 class="section-title">Коннект?</h2>
       
       <div ref="formRef" class="contact-container">
         <form class="contact-form">
           <div class="form-group">
-            <input type="text" placeholder="Your Name" required>
+            <input type="text" placeholder="Имя" required>
           </div>
           
           <div class="form-group">
-            <input type="email" placeholder="Your Email" required>
+            <input type="email" placeholder="Email" required>
           </div>
           
           <div class="form-group">
-            <textarea placeholder="Your Message" rows="5" required></textarea>
+            <textarea placeholder="Сообщение" rows="5" required></textarea>
           </div>
           
           <button type="submit" class="submit-btn">Send Message</button>
         </form>
         
         <div class="contact-info">
-          <h3>Let's work together</h3>
-          <p>Feel free to reach out for collaborations or just a friendly hello</p>
+          <h3>Поработаем вместе</h3>
+          <p>Я всегда открыт для новых предложений о сотрудничестве или просто дружеского "привет" :)</p>
           
           <div class="social-links">
             <a href="#" class="social-link">GitHub</a>

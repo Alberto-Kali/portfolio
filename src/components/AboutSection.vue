@@ -60,25 +60,23 @@ onMounted(() => {
     
     <div class="container">
       <div ref="textRef" class="about-content">
-        <h2 class="section-title">About Me</h2>
+        <h2 class="section-title">Обо Мне</h2>
         <p class="about-text">
-          I'm a passionate creative developer with a love for building immersive digital experiences. 
-          With expertise in modern web technologies and 3D graphics, I bring ideas to life through 
-          code and creativity.
+          Привет, я systemctl, продвинутый fullstack разработчик с обширными навыками создания и поддержки абсолютно разных проектов, от ботов до ядер операционных систем. Я не занимаюсь сортировкой старых решений, а нахожу уникальный подход к каждой задаче.
         </p>
         
         <div class="stats">
           <div class="stat-item">
             <span class="stat-number">5+</span>
-            <span class="stat-label">Years Experience</span>
+            <span class="stat-label">Лет опыта</span>
           </div>
           <div class="stat-item">
             <span class="stat-number">50+</span>
-            <span class="stat-label">Projects Completed</span>
+            <span class="stat-label">Проектов завершено</span>
           </div>
           <div class="stat-item">
             <span class="stat-number">20+</span>
-            <span class="stat-label">Happy Clients</span>
+            <span class="stat-label">Довольных заказчиков</span>
           </div>
         </div>
       </div>
