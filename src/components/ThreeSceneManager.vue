@@ -41,35 +41,59 @@ const sphereTarget = new THREE.Vector3(0, 20, 0) // сфера в (0,20,0)
 // Текущие значения для интерполяции
 const currentPos = new THREE.Vector3()
 const currentTarget = new THREE.Vector3()
+// Флаг готовности сцены
+let isInitialized = false
 
 // Обновление камеры в зависимости от прогресса
 function updateCamera(progress: number) {
+  if (!camera || !isInitialized) return // проверка
+
   let p: number
   let from: THREE.Vector3, to: THREE.Vector3
   let targetFrom: THREE.Vector3, targetTo: THREE.Vector3
+  let hasCovered = false;
 
   if (progress < 0.4) {
-    // Этап 0 → 1: приближение
+    // Этап 1: приближение
     p = progress / 0.4
     from = startPos
     to = closePos
     targetFrom = startTarget
     targetTo = closeTarget
   } else if (progress < 0.7) {
-    // Этап 1 → 2: переход к вертикальному обзору
+    // Этап 2: переход к вертикальному обзору
     p = (progress - 0.4) / 0.3
     from = closePos
     to = verticalPos
     targetFrom = closeTarget
     targetTo = verticalTarget
   } else {
-    // Этап 2 → 3: движение к чёрной сфере
+    // Этап 3: движение к чёрной сфере
     p = (progress - 0.7) / 0.3
     from = verticalPos
     to = spherePos
     targetFrom = verticalTarget
     targetTo = sphereTarget
   }
+  
+  // Логируем, когда прогресс близок к 1
+  if (progress > 0.95) {
+    console.log('Camera near sphere, progress:', progress)
+  }
+
+  const distToSphere = camera.position.distanceTo(blackSphere.position);
+  if (!hasCovered && distToSphere < 5) { // 5 — радиус сферы
+    hasCovered = true;
+    console.log('🔥 Camera entered black sphere');
+    emit('onBlackSphereCover');
+  }
+
+  // Используем порог 0.98 вместо 0.99, чтобы гарантировать срабатывание
+  if (progress > 0.98) {
+    console.log('Emitting onBlackSphereCover')
+    emit('onBlackSphereCover')
+  }
+
 
   currentPos.lerpVectors(from, to, p)
   currentTarget.lerpVectors(targetFrom, targetTo, p)
@@ -106,6 +130,7 @@ function initThree() {
   createSnow()
   loadModel()
   createBlackSphere()
+  isInitialized = true
 }
 
 // Освещение (зимняя атмосфера)
@@ -346,7 +371,7 @@ function createFallbackModel() {
 // Чёрная сфера
 function createBlackSphere() {
   const sphereGeo = new THREE.SphereGeometry(5, 64, 64)
-  const sphereMat = new THREE.MeshBasicMaterial({ color: 0x000000 })
+  const sphereMat = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide  })
   blackSphere = new THREE.Mesh(sphereGeo, sphereMat)
   blackSphere.position.set(0, 20, 0)
   scene.add(blackSphere)
@@ -385,17 +410,21 @@ onMounted(() => {
   initThree()
   animate()
   window.addEventListener('resize', onWindowResize)
+  // Обновить камеру с начальным прогрессом (после инициализации)
+  if (isInitialized) {
+    updateCamera(props.progress)
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', onWindowResize)
-  renderer.dispose()
+  renderer?.dispose()
 })
 
-// Следим за изменением прогресса
+// Следим за изменением прогресса (без immediate)
 watch(() => props.progress, (val) => {
   updateCamera(val)
-}, { immediate: true })
+})
 </script>
 
 <style scoped>
