@@ -1,71 +1,21 @@
-<!-- components/AboutSection.vue -->
-<script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
-
-gsap.registerPlugin(ScrollTrigger)
-
-const sectionRef = ref<HTMLElement | null>(null)
-const textRef = ref<HTMLElement | null>(null)
-let hue = 0
-
-onMounted(() => {
-  // Animated background color
-  gsap.to(sectionRef.value, {
-    backgroundColor: 'hsl(280, 80%, 10%)',
-    duration: 10,
-    repeat: -1,
-    yoyo: true,
-    ease: 'sine.inOut'
-  })
-  
-  // Text animation on scroll
-  gsap.from(textRef.value, {
-    scrollTrigger: {
-      trigger: sectionRef.value,
-      start: 'top center',
-      end: 'bottom center',
-      toggleActions: 'play none none reverse'
-    },
-    y: 100,
-    opacity: 0,
-    duration: 1.5,
-    ease: 'power4.out'
-  })
-  
-  // Parallax effect for decorative elements
-  gsap.to('.decor-circle', {
-    scrollTrigger: {
-      trigger: sectionRef.value,
-      start: 'top bottom',
-      end: 'bottom top',
-      scrub: 1
-    },
-    y: 200,
-    rotate: 360
-  })
-})
-</script>
-
 <template>
-  <section ref="sectionRef" class="about-section">
-    <div class="animated-bg"></div>
-    
+  <section class="horizontal-section about-section" id="about">
+    <div class="animated-particles"></div>
+
     <div class="decor-elements">
       <div class="decor-circle"></div>
       <div class="decor-circle"></div>
       <div class="decor-circle"></div>
     </div>
-    
+
     <div class="container">
-      <div ref="textRef" class="about-content">
-        <h2 class="section-title">Обо Мне</h2>
-        <p class="about-text">
+      <div class="about-content">
+        <h2 class="section-title animate-on-scroll">Обо Мне</h2>
+        <p class="about-text animate-on-scroll">
           Привет, я systemctl, продвинутый fullstack разработчик с обширными навыками создания и поддержки абсолютно разных проектов, от ботов до ядер операционных систем. Я не занимаюсь сортировкой старых решений, а нахожу уникальный подход к каждой задаче.
         </p>
-        
-        <div class="stats">
+
+        <div class="stats animate-on-scroll">
           <div class="stat-item">
             <span class="stat-number">5+</span>
             <span class="stat-label">Лет опыта</span>
@@ -84,21 +34,52 @@ onMounted(() => {
   </section>
 </template>
 
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import gsap from 'gsap'
+
+const sectionRef = ref<HTMLElement | null>(null)
+
+onMounted(() => {
+  // Анимированный градиентный фон (как в SkillsSection)
+  gsap.to(sectionRef.value, {
+    background: 'linear-gradient(135deg, #1a1a2e, #16213e, #0f3460)',
+    duration: 10,
+    repeat: -1,
+    yoyo: true,
+    ease: 'sine.inOut'
+  })
+
+  // Параллакс для декоративных кругов (если нужен)
+  gsap.to('.decor-circle', {
+    scrollTrigger: {
+      trigger: sectionRef.value,
+      start: 'top bottom',
+      end: 'bottom top',
+      scrub: 1
+    },
+    y: 200,
+    rotate: 360
+  })
+})
+</script>
+
 <style scoped>
 .about-section {
-  background: hsl(240, 80%, 5%);
-  transition: background-color 0.1s ease;
-  position: relative;
+  background: #1a1a2e;
   color: white;
+  position: relative;
+  overflow: hidden;
 }
 
-.animated-bg {
+.animated-particles {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle at 30% 50%, rgba(68, 102, 255, 0.1) 0%, transparent 50%);
+  background: radial-gradient(circle at 20% 50%, rgba(68, 102, 255, 0.15) 0%, transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(136, 68, 255, 0.15) 0%, transparent 50%);
   pointer-events: none;
 }
 
@@ -144,6 +125,8 @@ onMounted(() => {
   max-width: 800px;
   margin: 0 auto;
   text-align: center;
+  position: relative;
+  z-index: 2;
 }
 
 .section-title {
@@ -152,6 +135,7 @@ onMounted(() => {
   background: linear-gradient(45deg, #fff, #88aaff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .about-text {

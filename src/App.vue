@@ -5,13 +5,21 @@ import AboutSection from './components/AboutSection.vue'
 import ProjectsSection from './components/ProjectsSection.vue'
 import SkillsSection from './components/SkillsSection.vue'
 import ContactSection from './components/ContactSection.vue'
+import HorizontalSections from './components/HorizontalSections.vue'
+
+const sections = [
+  { id: 'about', title: 'Обо мне' },
+  { id: 'skills', title: 'Навыки' }
+]
 </script>
 
 <template>
   <div class="app">
     <HeroSection />
-    <AboutSection />
-    <SkillsSection />
+    <HorizontalSections :sections="sections">
+      <AboutSection />
+      <SkillsSection />
+    </HorizontalSections>
     <ProjectsSection />
     <ContactSection />
   </div>
