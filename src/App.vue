@@ -1,38 +1,50 @@
 <template>
-  <div ref="appRef">
+  <div>
+    <!-- 3D-сцена всегда присутствует, но может быть скрыта визуально после завершения -->
     <ThreeSceneManager
-      :progress="scrollProgress"
-      @onBlackSphereCover="handleBlackSphereCover"
-      v-if="showThree"
+      ref="threeManager"
+      :style="{ opacity: isThreeVisible ? 1 : 0, pointerEvents: isThreeVisible ? 'none' : 'none' }"
     />
 
-    <!-- Пустой блок для создания вертикального пространства скролла -->
-    <div :style="{ height: scrollHeight + 'px' }"></div>
-
-    <!-- Горизонтальный контейнер с секциями (изначально скрыт) -->
-    <div v-show="showHorizontal" class="horizontal-wrapper">
+    <!-- Обёртка для всего контента после сферы. Она всегда в потоке, но видима только когда надо -->
+    <div ref="afterSphereWrapper" class="after-sphere-wrapper" :class="{ 'visible': showHorizontal }">
+      <!-- Горизонтальный блок (About + Skills) -->
       <HorizontalSections :sections="sections">
         <AboutSection />
         <SkillsSection />
       </HorizontalSections>
+
+      <!-- Вертикальные секции -->
+      <ProjectsSection />
+      <ContactSection />
+    </div>
+
+    <!-- Отладка -->
+    <div class="debug-info">
+      threeProgress: {{ threeProgress.toFixed(3) }} | horizProgress: {{ horizProgress.toFixed(3) }} | showHorizontal: {{ showHorizontal }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import ThreeSceneManager from './components/ThreeSceneManager.vue'
 import HorizontalSections from './components/HorizontalSections.vue'
 import AboutSection from './components/AboutSection.vue'
 import SkillsSection from './components/SkillsSection.vue'
+import ProjectsSection from './components/ProjectsSection.vue'
+import ContactSection from './components/ContactSection.vue'
 
 gsap.registerPlugin(ScrollTrigger)
 
-const appRef = ref<HTMLElement | null>(null)
-const scrollProgress = ref(0)
-const showThree = ref(true)
+const threeManager = ref<InstanceType<typeof ThreeSceneManager> | null>(null)
+const afterSphereWrapper = ref<HTMLElement | null>(null)
+
+const threeProgress = ref(0)
+const horizProgress = ref(0)
+const isThreeVisible = ref(true)
 const showHorizontal = ref(false)
 
 const sections = [
@@ -40,55 +52,108 @@ const sections = [
   { id: 'skills', title: 'Навыки' }
 ]
 
-const scrollHeight = ref(0)
-let scrollTrigger: ScrollTrigger
+// Высоты (в vh)
+const threeJsHeight = 700 // подберите под желаемую скорость
+let horizontalHeight = 0   // будет вычислено
+let totalHeight = 0
 
-onMounted(() => {
-  // Вычисляем высоту анимации (3 экрана)
-  scrollHeight.value = window.innerHeight * 4
+let mainTrigger: ScrollTrigger
 
-  scrollTrigger = ScrollTrigger.create({
+onMounted(async () => {
+  // Даём отрендериться, чтобы измерить горизонтальный контейнер
+  await nextTick()
+
+  // Измеряем ширину горизонтального контента
+  const container = document.querySelector('.horizontal-container') as HTMLElement
+  if (container) {
+    const totalWidth = container.scrollWidth - window.innerWidth
+    horizontalHeight = (totalWidth / window.innerHeight) * 100
+  } else {
+    horizontalHeight = 200 // запас
+  }
+
+  totalHeight = threeJsHeight + horizontalHeight
+  document.body.style.minHeight = totalHeight + 'vh'
+
+  // Создаём единый ScrollTrigger
+  mainTrigger = ScrollTrigger.create({
     trigger: document.body,
     start: 0,
-    end: scrollHeight.value,
+    end: totalHeight + 'vh',
     scrub: true,
     onUpdate: (self) => {
-      // progress от 0 до 1 (ограничиваем)
-      scrollProgress.value = Math.min(self.progress, 1)
+      const progress = self.progress
+      const threePart = threeJsHeight / totalHeight
+
+      if (progress <= threePart) {
+        // Фаза 1: камера
+        const p = progress / threePart
+        threeProgress.value = p
+        threeManager.value?.updateProgress(p)
+
+        // Показываем трёхмерную сцену, скрываем горизонтальный контент
+        if (!isThreeVisible.value) isThreeVisible.value = true
+        if (showHorizontal.value) showHorizontal.value = false
+      } else {
+        // Фаза 2: горизонтальный скролл
+        const p = (progress - threePart) / (horizontalHeight / totalHeight)
+        horizProgress.value = p
+
+        if (!showHorizontal.value) {
+          showHorizontal.value = true
+          isThreeVisible.value = false
+          // При первом входе позиционируем обёртку правильно (она уже в потоке)
+          // Можно добавить плавное появление
+          gsap.fromTo(afterSphereWrapper.value, 
+            { opacity: 0 }, 
+            { opacity: 1, duration: 0.5, overwrite: true }
+          )
+        }
+
+        // Двигаем горизонтальный контейнер
+        updateHorizontalProgress(p)
+      }
     }
   })
 })
 
-const handleBlackSphereCover = () => {
-  // Плавно скрываем canvas и показываем горизонтальный блок
-  gsap.to('.three-canvas-fixed', {
-    opacity: 0,
-    duration: 1,
-    onComplete: () => {
-      showThree.value = false
-      showHorizontal.value = true
-      // Плавное появление горизонтального контейнера
-      gsap.from('.horizontal-wrapper', { opacity: 0, duration: 1 })
-    }
-  })
+function updateHorizontalProgress(p: number) {
+  const container = document.querySelector('.horizontal-container') as HTMLElement
+  if (!container) return
+  const totalWidth = container.scrollWidth - window.innerWidth
+  // Применяем трансформацию к контейнеру
+  gsap.set(container, { x: -totalWidth * p })
 }
 
 onUnmounted(() => {
-  scrollTrigger?.kill()
+  mainTrigger?.kill()
 })
 </script>
 
 <style>
 body {
   margin: 0;
-  overflow-x: hidden;
-  background: #0a1a2a; /* соответствует фону сцены */
+  background: #0a1a2a;
 }
 
-.horizontal-wrapper {
-  min-height: 100vh;
-  position: relative;
-  z-index: 2;
-  background: transparent;
+.after-sphere-wrapper {
+  opacity: 0; /* изначально скрыт */
+  transition: opacity 0.5s;
+}
+
+.after-sphere-wrapper.visible {
+  opacity: 1;
+}
+
+.debug-info {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  color: white;
+  background: rgba(0,0,0,0.7);
+  padding: 8px 12px;
+  border-radius: 8px;
+  z-index: 1000;
+  font-family: monospace;
 }
 </style>

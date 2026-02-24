@@ -6,20 +6,6 @@
         <slot />
       </div>
     </div>
-
-    <!-- Кнопки Prev / Next -->
-    <div class="page-nav">
-      <span class="page-nav-prev" v-show="activeIndex > 0">
-        <a href="#" @click.prevent="prevSection">
-          <i class="fa-solid fa-circle-chevron-left"></i>
-        </a>
-      </span>
-      <span class="page-nav-next" v-show="activeIndex < sections.length - 1">
-        <a href="#" @click.prevent="nextSection">
-          <i class="fa-solid fa-circle-chevron-right"></i>
-        </a>
-      </span>
-    </div>
   </div>
 </template>
 

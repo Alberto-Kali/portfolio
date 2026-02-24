@@ -421,10 +421,17 @@ onUnmounted(() => {
   renderer?.dispose()
 })
 
+function updateProgress(progress: number) {
+  updateCamera(progress)
+}
+
+// Экспонируем метод для родителя
+defineExpose({ updateProgress })
+
 // Следим за изменением прогресса (без immediate)
-watch(() => props.progress, (val) => {
-  updateCamera(val)
-})
+//watch(() => props.progress, (val) => {
+//  updateCamera(val)
+//})
 </script>
 
 <style scoped>
