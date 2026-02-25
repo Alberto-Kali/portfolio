@@ -1,27 +1,21 @@
 <template>
   <div>
-    <!-- 3D-сцена всегда присутствует, но может быть скрыта визуально после завершения -->
-    <ThreeSceneManager
-      ref="threeManager"
-      :style="{ opacity: isThreeVisible ? 1 : 0, pointerEvents: isThreeVisible ? 'none' : 'none' }"
-    />
+    <!-- 3D-сцена (всегда видима) -->
+    <ThreeSceneManager ref="threeManager" />
 
-    <!-- Обёртка для всего контента после сферы. Она всегда в потоке, но видима только когда надо -->
-    <div ref="afterSphereWrapper" class="after-sphere-wrapper" :class="{ 'visible': showHorizontal }">
-      <!-- Горизонтальный блок (About + Skills) -->
-      <HorizontalSections :sections="sections">
-        <AboutSection />
-        <SkillsSection />
-      </HorizontalSections>
+    <!-- Триггерный блок для анимации камеры (высота = 200vh) -->
+    <div class="camera-trigger" ref="triggerRef"></div>
 
-      <!-- Вертикальные секции -->
-      <ProjectsSection />
-      <ContactSection />
+    <!-- Контейнер с контентом после сферы -->
+    <div ref="contentContainer" class="content-after-sphere">
+      <AboutSection />
+      <SkillsSection />
+      <!-- Добавьте другие секции по мере необходимости -->
     </div>
 
-    <!-- Отладка -->
+    <!-- Отладка (можно убрать) -->
     <div class="debug-info">
-      threeProgress: {{ threeProgress.toFixed(3) }} | horizProgress: {{ horizProgress.toFixed(3) }} | showHorizontal: {{ showHorizontal }}
+      scrollY: {{ scrollY.toFixed(0) }} | progress: {{ cameraProgress.toFixed(3) }}
     </div>
   </div>
 </template>
@@ -31,118 +25,101 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import ThreeSceneManager from './components/ThreeSceneManager.vue'
-import HorizontalSections from './components/HorizontalSections.vue'
 import AboutSection from './components/AboutSection.vue'
 import SkillsSection from './components/SkillsSection.vue'
-import ProjectsSection from './components/ProjectsSection.vue'
-import ContactSection from './components/ContactSection.vue'
 
 gsap.registerPlugin(ScrollTrigger)
 
 const threeManager = ref<InstanceType<typeof ThreeSceneManager> | null>(null)
-const afterSphereWrapper = ref<HTMLElement | null>(null)
+const triggerRef = ref<HTMLElement | null>(null)
+const contentContainer = ref<HTMLElement | null>(null)
 
-const threeProgress = ref(0)
-const horizProgress = ref(0)
-const isThreeVisible = ref(true)
-const showHorizontal = ref(false)
+const cameraProgress = ref(0)
+const scrollY = ref(0)
 
-const sections = [
-  { id: 'about', title: 'Обо мне' },
-  { id: 'skills', title: 'Навыки' }
-]
+let scrollTrigger: ScrollTrigger
+let triggerHeight = 0       // высота триггерного блока в пикселях
+let contentHeight = 0       // общая высота контента
+let totalHeight = 0         // общая высота прокрутки
 
-// Высоты (в vh)
-const threeJsHeight = 700 // подберите под желаемую скорость
-let horizontalHeight = 0   // будет вычислено
-let totalHeight = 0
+// Функция обновления размеров и пересоздания ScrollTrigger
+async function updateDimensions() {
+  if (!triggerRef.value || !contentContainer.value) return
 
-let mainTrigger: ScrollTrigger
-
-onMounted(async () => {
-  // Даём отрендериться, чтобы измерить горизонтальный контейнер
+  // Даём время на отрисовку
   await nextTick()
 
-  // Измеряем ширину горизонтального контента
-  const container = document.querySelector('.horizontal-container') as HTMLElement
-  if (container) {
-    const totalWidth = container.scrollWidth - window.innerWidth
-    horizontalHeight = (totalWidth / window.innerHeight) * 100
-  } else {
-    horizontalHeight = 200 // запас
+  // Вычисляем высоту триггерного блока (200vh)
+  triggerHeight = window.innerHeight * 2
+  triggerRef.value.style.height = triggerHeight + 'px'
+
+  // Вычисляем высоту контента
+  contentHeight = contentContainer.value.offsetHeight
+
+  totalHeight = triggerHeight + contentHeight
+
+  // Убиваем старый ScrollTrigger, если есть
+  if (scrollTrigger) {
+    scrollTrigger.kill()
   }
 
-  totalHeight = threeJsHeight + horizontalHeight
-  document.body.style.minHeight = totalHeight + 'vh'
-
-  // Создаём единый ScrollTrigger
-  mainTrigger = ScrollTrigger.create({
+  // Создаём новый ScrollTrigger на всё тело
+  scrollTrigger = ScrollTrigger.create({
     trigger: document.body,
     start: 0,
-    end: totalHeight + 'vh',
+    end: totalHeight,
     scrub: true,
     onUpdate: (self) => {
-      const progress = self.progress
-      const threePart = threeJsHeight / totalHeight
+      const progress = self.progress // от 0 до 1
+      const triggerPart = triggerHeight / totalHeight
 
-      if (progress <= threePart) {
-        // Фаза 1: камера
-        const p = progress / threePart
-        threeProgress.value = p
-        threeManager.value?.updateProgress(p)
-
-        // Показываем трёхмерную сцену, скрываем горизонтальный контент
-        if (!isThreeVisible.value) isThreeVisible.value = true
-        if (showHorizontal.value) showHorizontal.value = false
+      if (progress <= triggerPart) {
+        // Фаза анимации камеры
+        const camProgress = progress / triggerPart
+        cameraProgress.value = camProgress
+        threeManager.value?.updateProgress(camProgress)
       } else {
-        // Фаза 2: горизонтальный скролл
-        const p = (progress - threePart) / (horizontalHeight / totalHeight)
-        horizProgress.value = p
-
-        if (!showHorizontal.value) {
-          showHorizontal.value = true
-          isThreeVisible.value = false
-          // При первом входе позиционируем обёртку правильно (она уже в потоке)
-          // Можно добавить плавное появление
-          gsap.fromTo(afterSphereWrapper.value, 
-            { opacity: 0 }, 
-            { opacity: 1, duration: 0.5, overwrite: true }
-          )
-        }
-
-        // Двигаем горизонтальный контейнер
-        updateHorizontalProgress(p)
+        // Камера остаётся в конечной точке (прогресс = 1)
+        cameraProgress.value = 1
+        threeManager.value?.updateProgress(1)
       }
+
+      // Для отладки сохраняем scrollY
+      scrollY.value = window.scrollY
     }
+  })
+
+  // Обновляем ScrollTrigger, чтобы применить новый end
+  ScrollTrigger.refresh()
+}
+
+onMounted(async () => {
+  await updateDimensions()
+
+  // Обновляем при ресайзе окна
+  window.addEventListener('resize', () => {
+    updateDimensions()
   })
 })
 
-function updateHorizontalProgress(p: number) {
-  const container = document.querySelector('.horizontal-container') as HTMLElement
-  if (!container) return
-  const totalWidth = container.scrollWidth - window.innerWidth
-  // Применяем трансформацию к контейнеру
-  gsap.set(container, { x: -totalWidth * p })
-}
-
 onUnmounted(() => {
-  mainTrigger?.kill()
+  scrollTrigger?.kill()
+  window.removeEventListener('resize', updateDimensions)
 })
 </script>
 
-<style>
-body {
-  margin: 0;
-  background: #0a1a2a;
+<style scoped>
+.camera-trigger {
+  width: 100%;
+  pointer-events: none; /* чтобы не мешать кликам */
 }
 
-.after-sphere-wrapper {
-  opacity: 0; /* изначально скрыт */
-  transition: opacity 0.5s;
-}
-
-.after-sphere-wrapper.visible {
-  opacity: 1;
+.content-after-sphere {
+  position: relative;
+  z-index: 10;            /* выше canvas */
+  background-color: rgba(10, 20, 30, 0.7); /* полупрозрачный фон */
+  color: white;
+  backdrop-filter: blur(2px); /* лёгкое размытие для читаемости */
 }
 
 .debug-info {
