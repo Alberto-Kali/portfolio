@@ -1,21 +1,28 @@
 <template>
   <div>
-    <!-- 3D-сцена (всегда видима) -->
-    <ThreeSceneManager ref="threeManager" />
-
-    <!-- Триггерный блок для анимации камеры (высота = 200vh) -->
-    <div class="camera-trigger" ref="triggerRef"></div>
-
-    <!-- Контейнер с контентом после сферы -->
-    <div ref="contentContainer" class="content-after-sphere">
-      <AboutSection />
-      <SkillsSection />
-      <!-- Добавьте другие секции по мере необходимости -->
+    <!-- Режим 1: Three.js сцена -->
+    <div v-if="mode === 'scene'" class="scene-mode">
+      <ThreeSceneManager
+        ref="threeManager"
+        :progress="sceneProgress"
+        @onBlackSphereCover="switchToSite"
+      />
+      <div class="scene-spacer" :style="{ height: sceneHeight + 'px' }"></div>
     </div>
 
-    <!-- Отладка (можно убрать) -->
+    <!-- Режим 2: Обычный сайт -->
+    <div v-else ref="siteModeRef" class="site-mode">
+      <HorizontalSections :sections="sections">
+        <AboutSection />
+        <SkillsSection />
+      </HorizontalSections>
+      <ProjectsSection />
+      <ContactSection />
+    </div>
+
+    <!-- Отладочная информация (можно убрать) -->
     <div class="debug-info">
-      scrollY: {{ scrollY.toFixed(0) }} | progress: {{ cameraProgress.toFixed(3) }}
+      Mode: {{ mode }} | sceneProgress: {{ sceneProgress.toFixed(2) }}
     </div>
   </div>
 </template>
@@ -25,103 +32,116 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import ThreeSceneManager from './components/ThreeSceneManager.vue'
+import HorizontalSections from './components/HorizontalSections.vue'
 import AboutSection from './components/AboutSection.vue'
 import SkillsSection from './components/SkillsSection.vue'
+import ProjectsSection from './components/ProjectsSection.vue'
+import ContactSection from './components/ContactSection.vue'
 
 gsap.registerPlugin(ScrollTrigger)
 
+const mode = ref<'scene' | 'site'>('scene')
 const threeManager = ref<InstanceType<typeof ThreeSceneManager> | null>(null)
-const triggerRef = ref<HTMLElement | null>(null)
-const contentContainer = ref<HTMLElement | null>(null)
+const siteModeRef = ref<HTMLElement | null>(null)
+const sceneProgress = ref(0)
 
-const cameraProgress = ref(0)
-const scrollY = ref(0)
+const sections = [
+  { id: 'about', title: 'Обо мне' },
+  { id: 'skills', title: 'Навыки' }
+]
 
-let scrollTrigger: ScrollTrigger
-let triggerHeight = 0       // высота триггерного блока в пикселях
-let contentHeight = 0       // общая высота контента
-let totalHeight = 0         // общая высота прокрутки
+const sceneHeight = window.innerHeight * 8 // 800vh – подберите под свою анимацию
 
-// Функция обновления размеров и пересоздания ScrollTrigger
-async function updateDimensions() {
-  if (!triggerRef.value || !contentContainer.value) return
+let sceneTrigger: ScrollTrigger
+let backTrigger: ScrollTrigger | null = null
 
-  // Даём время на отрисовку
-  await nextTick()
-
-  // Вычисляем высоту триггерного блока (200vh)
-  triggerHeight = window.innerHeight * 2
-  triggerRef.value.style.height = triggerHeight + 'px'
-
-  // Вычисляем высоту контента
-  contentHeight = contentContainer.value.offsetHeight
-
-  totalHeight = triggerHeight + contentHeight
-
-  // Убиваем старый ScrollTrigger, если есть
-  if (scrollTrigger) {
-    scrollTrigger.kill()
-  }
-
-  // Создаём новый ScrollTrigger на всё тело
-  scrollTrigger = ScrollTrigger.create({
+onMounted(() => {
+  // Триггер для управления камерой
+  sceneTrigger = ScrollTrigger.create({
     trigger: document.body,
     start: 0,
-    end: totalHeight,
+    end: sceneHeight,
     scrub: true,
     onUpdate: (self) => {
-      const progress = self.progress // от 0 до 1
-      const triggerPart = triggerHeight / totalHeight
-
-      if (progress <= triggerPart) {
-        // Фаза анимации камеры
-        const camProgress = progress / triggerPart
-        cameraProgress.value = camProgress
-        threeManager.value?.updateProgress(camProgress)
-      } else {
-        // Камера остаётся в конечной точке (прогресс = 1)
-        cameraProgress.value = 1
-        threeManager.value?.updateProgress(1)
-      }
-
-      // Для отладки сохраняем scrollY
-      scrollY.value = window.scrollY
+      sceneProgress.value = self.progress
+      threeManager.value?.updateProgress(self.progress)
     }
-  })
-
-  // Обновляем ScrollTrigger, чтобы применить новый end
-  ScrollTrigger.refresh()
-}
-
-onMounted(async () => {
-  await updateDimensions()
-
-  // Обновляем при ресайзе окна
-  window.addEventListener('resize', () => {
-    updateDimensions()
   })
 })
 
+// Переключение на сайт
+async function switchToSite() {
+  mode.value = 'site'
+  await nextTick() // ждём рендера сайта
+
+  // Прокручиваем точно к началу сайта
+  if (siteModeRef.value) {
+    const top = siteModeRef.value.getBoundingClientRect().top + window.scrollY
+    window.scrollTo({ top, behavior: 'auto' }) // 'auto' – мгновенно
+  }
+
+  // Плавно скрываем canvas
+  gsap.to('.three-canvas-fixed', { opacity: 0, duration: 1 })
+
+  // Отключаем триггер сцены
+  sceneTrigger.disable()
+
+  // Создаём триггер для возврата при overscroll вверх
+  backTrigger = ScrollTrigger.create({
+    trigger: siteModeRef.value,
+    start: 'top top',
+    end: 'top top-=1', // очень маленький диапазон
+    onLeaveBack: () => {
+      // Пользователь прокрутил выше начала сайта – возвращаемся на сцену
+      switchToScene()
+    }
+  })
+}
+
+// Возврат на сцену
+function switchToScene() {
+  // Убиваем триггер сайта
+  backTrigger?.kill()
+  backTrigger = null
+
+  // Включаем триггер сцены
+  sceneTrigger.enable()
+
+  // Показываем canvas
+  gsap.to('.three-canvas-fixed', { opacity: 1, duration: 1 })
+
+  // Сбрасываем прогресс камеры в 0
+  sceneProgress.value = 0
+  threeManager.value?.updateProgress(0)
+
+  // Прокручиваем к началу сцены
+  window.scrollTo({ top: 0, behavior: 'auto' })
+
+  // Переключаем режим
+  mode.value = 'scene'
+}
+
 onUnmounted(() => {
-  scrollTrigger?.kill()
-  window.removeEventListener('resize', updateDimensions)
+  sceneTrigger?.kill()
+  backTrigger?.kill()
 })
 </script>
 
-<style scoped>
-.camera-trigger {
-  width: 100%;
-  pointer-events: none; /* чтобы не мешать кликам */
+<style>
+body {
+  margin: 0;
+  background: #0a1a2a;
 }
-
-.content-after-sphere {
+.scene-mode {
   position: relative;
-  z-index: 10;            /* выше canvas */
-  background-color: rgba(10, 20, 30, 0.7); /* полупрозрачный фон */
-  color: white;
-  backdrop-filter: blur(2px); /* лёгкое размытие для читаемости */
+  z-index: 1;
 }
-
+.site-mode {
+  position: relative;
+  z-index: 10;
+  background: #0a1a2a;
+  min-height: 100vh;
+}
 .debug-info {
   position: fixed;
   bottom: 20px;
@@ -132,5 +152,21 @@ onUnmounted(() => {
   border-radius: 8px;
   z-index: 1000;
   font-family: monospace;
+}
+
+/* Стили для вертикальных секций */
+.site-mode section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+.site-mode section > * {
+  max-width: 1200px;
+  width: 100%;
 }
 </style>
